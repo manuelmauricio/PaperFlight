@@ -1,0 +1,1364 @@
+<html>
+<head>
+	
+	<title>Paper Flight</title>
+	<script type="text/javascript" src="js/libs/jquery/jquery-2.1.4.min.js"></script>
+	<script type="text/javascript" src="js/libs/three/three.js"></script>
+	<script type="text/javascript" src="js/libs/three/MTLLoader.js"></script>
+	<script type="text/javascript" src="js/libs/three/OBJLoader.js"></script>
+	<script type="text/javascript" src="js/libs/facebook/facebook.js"></script>
+	<script type="text/javascript" src="js/libs/shaders/shader-utility.js"></script>
+
+	 <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="plugins/bootstrap/css/bootstrap.min.css">
+	<!-- font-awesome CSS -->
+	<link rel="stylesheet" href="font-awesome/css/font-awesome.min.css">
+
+	<!-- css del proyecto -->
+    <link rel="stylesheet" href="CSS files/card.css"> 
+    <link rel="stylesheet" href="CSS files/hr.css"> 
+	<link rel="icon" href="imagenes/logo_icon.ico">
+
+<style>
+/* The Modal (background) */
+.modal {
+  display: none; /* Hidden by default */
+  position: fixed; /* Stay in place */
+  z-index: 1; /* Sit on top */
+  padding-top: 1rem; /* Location of the box */
+  left: 0;
+  top: 0;
+  width: 100%; /* Full width */
+  height: 100%; /* Full height */
+  overflow: auto; /* Enable scroll if needed */
+  background-color: rgb(0,0,0); /* Fallback color */
+  background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
+}
+
+/* Modal Content */
+.modal-content {
+  background-color: #fefefe;
+  margin: auto;
+  padding: 20px;
+  border: 1px solid #888;
+  width: 80%;
+}
+
+/* The Close Button */
+.close {
+  color: #aaaaaa;
+  float: right;
+  font-size: 28px;
+  font-weight: bold;
+}
+
+.close:hover,
+.close:focus {
+  color: #000;
+  text-decoration: none;
+  cursor: pointer;
+}
+</style>
+
+	<script id="shader-vs" type="x-shader/x-vertex">
+
+        
+		attribute vec3 aVertexPosition; 
+		attribute vec4 aVertexColor;
+
+		uniform mat4 uMVMatrix; 
+
+		uniform mat4 uPMatrix;    
+        varying lowp vec4 vColor;		
+
+
+		void main(void){
+		gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
+		vColor = aVertexColor;
+		
+	}
+		
+	</script>
+	
+	<script id="shader-fs" type="x-shader/x-fragment">
+		
+		varying lowp vec4 vColor;
+
+		void main(void){
+		gl_FragColor = vColor;
+	}
+
+	</script>
+
+
+
+
+	 <!-- Optional JavaScript -->
+    <!-- jQuery first, then Popper.js, then Bootstrap JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
+    <script src="plugins/bootstrap/js/bootstrap.min.js"></script>
+
+
+	<script type="text/javascript">
+
+	var scene;
+	var camera;
+	var renderer;
+	var controls;
+	var objects = [];
+	var clock;
+	var deltaTime;	
+    var mainplane;
+    var mainplanetwo;
+	var keys = {};
+	var rayCaster;
+	var rayCaster2;
+
+	var objetosConColision = [];
+	var globosRojosColision = [];
+	var globosAzulesColision = [];
+	var globosAmarillosColision = [];
+
+    var cameratransz = 4;
+    var pause = 1;
+    var brightness = 0.4
+    var directionalLight;
+    var directionalLight2;
+    var audio;
+
+    var ui_distance = 0;
+    var ui_points = 0;
+    var ui_time = 0;
+
+    var ui_distance2 = 0;
+    var ui_point2s = 0;
+    var ui_time2 = 0;
+
+    var distancex = 0;
+    var distancez = 0;
+
+    var distancex2 = 0;
+    var distancez2 = 0;
+
+    var fanlimit = 0;
+    var fanpos = 0;
+
+    var negatve_time = 0;
+    var totalresult = 0;
+
+    var isover = 0;
+
+
+ var span;
+ var spancontinue;
+ var modal;
+ var modaldos;
+ var btnPausa;
+
+
+
+
+	var isWorldReady = [ false, false ];
+	var gl;
+	var shaderProgram;
+
+	$(document).ready(function() {
+
+			try {
+
+				var canvas = $("#webgl-canvas")[0];
+
+				gl = canvas.getContext("webgl");
+
+				gl.viewportWidth = canvas.width;
+				gl.viewportHeight = canvas.height;
+                
+				gl.clearColor(0.0, 0.0 ,0.0 ,1.0); //Agregar el canal alfa
+				gl.enable(gl.DEPTH_TEST);
+
+				gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+			} catch(e) {
+				alert("Navegador no compatible con WebGL");
+				return true;
+			}
+
+			var vertexShader = getShader(gl, $("#shader-vs")[0]);
+			var fragmentShader = getShader(gl, $("#shader-fs")[0]);
+
+			
+			shaderProgram = gl.createProgram();
+
+			gl.attachShader(shaderProgram, vertexShader);
+			gl.attachShader(shaderProgram, fragmentShader);
+			gl.linkProgram(shaderProgram);
+
+
+			if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
+				alert("Error con el ShaderProgram!");
+				return false;
+			}
+
+        
+			gl.useProgram(shaderProgram);
+
+
+
+		setupScene();
+        rayCaster = new THREE.Raycaster();
+        rayCaster2 = new THREE.Raycaster();
+
+
+
+
+
+		camera.rayos = [
+			new THREE.Vector3(0,0,1),
+			new THREE.Vector3(0,0,-1),
+			new THREE.Vector3(1,0,0),
+			new THREE.Vector3(-1,0,0)
+		];
+
+		camera.rayos2 = [
+			new THREE.Vector3(0,0,1),
+			new THREE.Vector3(0,0,-1),
+			new THREE.Vector3(1,0,0),
+			new THREE.Vector3(-1,0,0)
+		];
+
+	
+        loadOBJWithMTL("assets/RedPaperPlane/", "RedPaperPlaneOne.obj", "RedPaperPlaneOne.mtl", (object) => {
+			object.position.set(-7,6,0);
+			object.scale.set(0.3,0.3,0.3);
+			//object.rotation.x = THREE.Math.degToRad(-90);
+			scene.add(object);
+			object.name="MainPlane";
+			isWorldReady[0] = true;
+		});
+
+
+		loadOBJWithMTL("assets/BluePaperPlane/", "BluePaperPlaneOne.obj", "BluePaperPlaneOne.mtl", (objecttwo) => {
+			objecttwo.position.set(7,6,0);
+			objecttwo.scale.set(0.3,0.3,0.3);
+			//object.rotation.x = THREE.Math.degToRad(-90);
+			scene.add(objecttwo);
+			objecttwo.name="MainPlaneTwo";
+			isWorldReady[0] = true;
+		});
+
+
+		loadOBJWithMTL("assets/FinishLine/", "FinishLine.obj", "FinishLine.mtl", (linef) => {
+			linef.position.set(0,2,-400);
+			linef.scale.set(1,1,0.2);
+			linef.rotation.x = THREE.Math.degToRad(-90);
+			scene.add(linef);
+			linef.name="linef";
+			isWorldReady[0] = true;
+		});
+
+				loadOBJWithMTL("assets/milmetros/", "milmetros.obj", "milmetros.mtl", (linem) => {
+			linem.position.set(-20,2.2,-410);
+			linem.scale.set(0.5,0.5,0.5);
+			linem.rotation.y = THREE.Math.degToRad(-90);
+			scene.add(linem);
+			linem.name="linem";
+			isWorldReady[0] = true;
+		});
+
+		loadOBJWithMTL("assets/BookShelf/", "BookShelf.obj", "BookShelf.mtl", (wall) => {
+
+			wall.position.set(0,0,-15);
+			wall.scale.set(1.2,1,1.3);
+			wall.rotation.x = THREE.Math.degToRad(-90);
+			scene.add(wall);
+			objetosConColision.push(wall);
+
+			var wall1 = wall.clone();
+			wall1.position.set(17.5,0,-30);
+			wall1.scale.set(1.5,1,1.3);
+			scene.add(wall1);
+			objetosConColision.push(wall1);
+
+			var wall2 = wall.clone();
+			wall2.position.set(-17.5,0,-30);
+			wall2.scale.set(1.5,1,1.3);
+			scene.add(wall2);
+			objetosConColision.push(wall2);
+
+			var wall3 = wall.clone();
+			wall3.position.set(0,0,-45);
+			wall3.scale.set(1.3,1,1.3);
+			scene.add(wall3);
+			objetosConColision.push(wall3);
+
+			var wall4 = wall.clone();
+			wall4.position.set(17,0,-70);
+			wall4.scale.set(1.5,1,1.3);
+			scene.add(wall4);
+			objetosConColision.push(wall4);
+
+			var wall42 = wall.clone();
+			wall42.position.set(-17,0,-70);
+			wall42.scale.set(1.5,1,1.3);
+			scene.add(wall42);
+			objetosConColision.push(wall42);
+
+			var wall5 = wall.clone();
+			wall5.position.set(15,0,-120);
+			wall5.scale.set(2,1,1.3);
+			wall5.rotation.z = THREE.Math.degToRad(90);
+			scene.add(wall5);
+			objetosConColision.push(wall5);
+
+			var wall6 = wall.clone();
+			wall6.position.set(0,0,-90);
+			wall6.scale.set(1.2,1,1.3);
+			scene.add(wall6);
+			objetosConColision.push(wall6);
+
+			var wall7 = wall.clone();
+			wall7.position.set(-15,0,-120);
+			wall7.scale.set(2,1,1.3);
+			wall7.rotation.z = THREE.Math.degToRad(90);
+			scene.add(wall7);
+			objetosConColision.push(wall7);
+
+			var wall8 = wall.clone();
+			wall8.position.set(0,0,-180);
+			wall8.scale.set(2.6,1.2,1.3);
+			wall8.rotation.z = THREE.Math.degToRad(90);
+			scene.add(wall8);
+			objetosConColision.push(wall8);
+
+			var wall9 = wall.clone();
+			wall9.position.set(13,0,-230);
+			wall9.scale.set(2.1,2,1.3);
+			scene.add(wall9);
+			objetosConColision.push(wall9);
+
+			var wall10 = wall.clone();
+			wall10.position.set(-13,0,-250);
+			wall10.scale.set(2.1,2,1.3);
+			scene.add(wall10);
+			objetosConColision.push(wall10);
+
+			var wall11 = wall.clone();
+			wall11.position.set(13,0,-270);
+			wall11.scale.set(2.1,2,1.3);
+			scene.add(wall11);
+			objetosConColision.push(wall11);
+
+			var wall101 = wall.clone();
+			wall101.position.set(-13,0,-290);
+			wall101.scale.set(2.1,2,1.3);
+			scene.add(wall101);
+			objetosConColision.push(wall101);
+
+			var wall111 = wall.clone();
+			wall111.position.set(13,0,-310);
+			wall111.scale.set(2.1,2,1.3);
+			scene.add(wall111);
+			objetosConColision.push(wall111);
+
+			var wall12 = wall.clone();
+			wall12.position.set(-13,0,-360);
+			wall12.scale.set(2,1.2,1.3);
+			wall12.rotation.z = THREE.Math.degToRad(90);
+			scene.add(wall12);
+			objetosConColision.push(wall12);
+
+			var wall13 = wall.clone();
+			wall13.position.set(13,0,-360);
+			wall13.scale.set(2,1.2,1.3);
+			wall13.rotation.z = THREE.Math.degToRad(90);
+			scene.add(wall13);
+			objetosConColision.push(wall13);
+
+			isWorldReady[1] = true;
+		});
+
+		loadOBJWithMTL("assets/RedBallon/", "RedBallon.obj", "RedBallon.mtl", (rballon) => {
+			
+			rballon.position.set(-15,6,-35);
+			rballon.scale.set(0.4,0.4,0.4);
+			rballon.rotation.x = THREE.Math.degToRad(-135);
+			scene.add(rballon);
+			globosRojosColision.push(rballon);
+
+			var rballon1 = rballon.clone();
+			rballon1.position.set(15,6,-35);
+			rballon1.scale.set(0.4,0.4,0.4);
+			scene.add(rballon1);
+			globosRojosColision.push(rballon1);
+
+			var rballon11 = rballon.clone();
+			rballon11.position.set(15,6,-63);
+			rballon11.scale.set(0.4,0.4,0.4);
+			scene.add(rballon11);
+			globosRojosColision.push(rballon11);
+
+			var rballon1a = rballon.clone();
+			rballon1a.position.set(15,6,-15);
+			rballon1a.scale.set(0.4,0.4,0.4);
+			scene.add(rballon1a);
+			globosRojosColision.push(rballon1a);
+
+			var rballon1ab = rballon.clone();
+			rballon1ab.position.set(-15,6,-15);
+			rballon1ab.scale.set(0.4,0.4,0.4);
+			scene.add(rballon1ab);
+			globosRojosColision.push(rballon1ab);
+
+
+
+			var rballon2 = rballon.clone();
+			rballon2.position.set(-15,6,-63);
+			rballon2.scale.set(0.4,0.4,0.4);
+			scene.add(rballon2);
+			globosRojosColision.push(rballon2);
+
+
+			var rballon2x = rballon.clone();
+			rballon2x.position.set(-5,6,-100);
+			rballon2x.scale.set(0.4,0.4,0.4);
+			scene.add(rballon2x);
+			globosRojosColision.push(rballon2x);
+
+			var rballon2xs = rballon.clone();
+			rballon2xs.position.set(5,6,-100);
+			rballon2xs.scale.set(0.4,0.4,0.4);
+			scene.add(rballon2xs);
+			globosRojosColision.push(rballon2xs);
+
+
+			var rballon3 = rballon.clone();
+			rballon3.position.set(-5,6,-322);
+			rballon3.scale.set(0.4,0.4,0.4);
+			scene.add(rballon3);
+			globosRojosColision.push(rballon3);
+
+			var rballon31 = rballon.clone();
+			rballon31.position.set(-15,6,-322);
+			rballon31.scale.set(0.4,0.4,0.4);
+			scene.add(rballon31);
+			globosRojosColision.push(rballon31);
+
+			var rballon4 = rballon.clone();
+			rballon4.position.set(5,6,-322);
+			rballon4.scale.set(0.4,0.4,0.4);
+			scene.add(rballon4);
+			globosRojosColision.push(rballon4);
+
+			var rballon41 = rballon.clone();
+			rballon41.position.set(15,6,-322);
+			rballon41.scale.set(0.4,0.4,0.4);
+			scene.add(rballon41);
+			globosRojosColision.push(rballon41);
+
+
+			isWorldReady[1] = true;
+		});
+
+		loadOBJWithMTL("assets/BlueBallon/", "BlueBallon.obj", "BlueBallon.mtl", (bballon) => {
+			
+			bballon.position.set(0,6,-120);
+			bballon.scale.set(0.4,0.4,0.4);
+			bballon.rotation.x = THREE.Math.degToRad(-135);
+			scene.add(bballon);
+			globosAzulesColision.push(bballon);
+
+			var bballon1 = bballon.clone();
+			bballon1.position.set(-11,6,-153);
+			bballon1.scale.set(0.4,0.4,0.4);
+			scene.add(bballon1);
+			globosAzulesColision.push(bballon1);
+
+			var bballon1u = bballon.clone();
+			bballon1u.position.set(0,6,-40);
+			bballon1u.scale.set(0.4,0.4,0.4);
+			scene.add(bballon1u);
+			globosAzulesColision.push(bballon1u);
+
+			var bballon1us = bballon.clone();
+			bballon1us.position.set(0,6,-52);
+			bballon1us.scale.set(0.4,0.4,0.4);
+			scene.add(bballon1us);
+			globosAzulesColision.push(bballon1us);
+
+			var bballon1uss = bballon.clone();
+			bballon1uss.position.set(0,6,-64);
+			bballon1uss.scale.set(0.4,0.4,0.4);
+			scene.add(bballon1uss);
+			globosAzulesColision.push(bballon1uss);
+
+			var bballon2 = bballon.clone();
+			bballon2.position.set(-11,6,-202);
+			bballon2.scale.set(0.4,0.4,0.4);
+			scene.add(bballon2);
+			globosAzulesColision.push(bballon2);
+
+			var bballon2g = bballon.clone();
+			bballon2g.position.set(-11,6,-176);
+			bballon2g.scale.set(0.4,0.4,0.4);
+			scene.add(bballon2g);
+			globosAzulesColision.push(bballon2g);
+
+			var bballon2gs = bballon.clone();
+			bballon2gs.position.set(11,6,-176);
+			bballon2gs.scale.set(0.4,0.4,0.4);
+			scene.add(bballon2gs);
+			globosAzulesColision.push(bballon2gs);
+
+
+			var bballon11 = bballon.clone();
+			bballon11.position.set(11,6,-153);
+			bballon11.scale.set(0.4,0.4,0.4);
+			scene.add(bballon11);
+			globosAzulesColision.push(bballon11);
+
+			var bballon21 = bballon.clone();
+			bballon21.position.set(11,6,-202);
+			bballon21.scale.set(0.4,0.4,0.4);
+			scene.add(bballon21);
+			globosAzulesColision.push(bballon21);
+
+
+
+			var bballonz = bballon.clone();
+			bballonz.position.set(-0,6,-220);
+			bballonz.scale.set(0.4,0.4,0.4);
+			scene.add(bballonz);
+			globosAzulesColision.push(bballonz);
+
+			var bballon3 = bballon.clone();
+			bballon3.position.set(18,6,-266);
+			bballon3.scale.set(0.4,0.4,0.4);
+			scene.add(bballon3);
+			globosAzulesColision.push(bballon3);
+
+			var bballon31 = bballon.clone();
+			bballon31.position.set(-18,6,-286);
+			bballon31.scale.set(0.4,0.4,0.4);
+			scene.add(bballon31);
+			globosAzulesColision.push(bballon31);
+
+			var bballon4 = bballon.clone();
+			bballon4.position.set(8,6,-355);
+			bballon4.scale.set(0.4,0.4,0.4);
+			scene.add(bballon4);
+			globosAzulesColision.push(bballon4);
+
+			var bballon5 = bballon.clone();
+			bballon5.position.set(-8,6,-355);
+			bballon5.scale.set(0.4,0.4,0.4);
+			scene.add(bballon5);
+			globosAzulesColision.push(bballon5);
+
+
+
+
+
+
+			isWorldReady[1] = true;
+		});
+
+		loadOBJWithMTL("assets/YellowBallon/", "YellowBallon.obj", "YellowBallon.mtl", (yballon) => {
+
+			yballon.position.set(0,6,-365);
+			yballon.scale.set(0.4,0.4,0.4);
+			yballon.rotation.x = THREE.Math.degToRad(-135);
+			scene.add(yballon);
+			globosAmarillosColision.push(yballon);
+
+			var yballon1 = yballon.clone();
+			yballon1.position.set(0,6,-85);
+			yballon1.scale.set(0.4,0.4,0.4);
+			scene.add(yballon1);
+			globosAmarillosColision.push(yballon1);
+
+			var yballon1c = yballon.clone();
+			yballon1c.position.set(0,6,-140);
+			yballon1c.scale.set(0.4,0.4,0.4);
+			scene.add(yballon1c);
+			globosAmarillosColision.push(yballon1c);
+
+			var yballon1cu = yballon.clone();
+			yballon1cu.position.set(0,6,-206);
+			yballon1cu.scale.set(0.4,0.4,0.4);
+			scene.add(yballon1cu);
+			globosAmarillosColision.push(yballon1cu);
+
+			var yballonf = yballon.clone();
+			yballonf.position.set(-8,6,-380);
+			yballonf.scale.set(0.4,0.4,0.4);
+			scene.add(yballonf);
+			globosAmarillosColision.push(yballonf);
+
+			var yballonfi = yballon.clone();
+			yballonfi.position.set(8,6,-380);
+			yballonfi.scale.set(0.4,0.4,0.4);
+			scene.add(yballonfi);
+			globosAmarillosColision.push(yballonfi);
+
+			isWorldReady[1] = true;
+
+
+		});
+
+		loadOBJWithMTL("assets/WoodFan/", "WoodFan.obj", "WoodFan.mtl", (fan) => {
+			
+			fan.position.set(0,6,-55);
+			fan.scale.set(0.6,0.6,0.6);
+			fan.rotation.x = THREE.Math.degToRad(-90);
+			scene.add(fan);
+		    fan.name = "fan";
+			objetosConColision.push(fan);
+
+            var fan1 = fan.clone();
+			fan1.position.set(0,6,-80);
+			fan1.scale.set(0.6,0.6,0.6);
+			scene.add(fan1);
+			fan1.name = "fan1";
+			objetosConColision.push(fan1);
+
+			var fan11 = fan.clone();
+			fan11.position.set(0,6,-80);
+			fan11.scale.set(0.6,0.6,0.6);
+			scene.add(fan11);
+			fan11.name = "fan11";
+			objetosConColision.push(fan11);
+
+			var fan2 = fan.clone();
+			fan2.position.set(0,6,-135);
+			fan2.scale.set(0.6,0.6,0.6);
+			scene.add(fan2);
+			fan2.name = "fan2";
+			objetosConColision.push(fan2);
+
+			var fan3 = fan.clone();
+			fan3.position.set(-12,6,-185);
+			fan3.scale.set(0.6,0.6,0.6);
+			scene.add(fan3);
+			fan3.name = "fan3";
+			objetosConColision.push(fan3);
+
+			var fan31 = fan.clone();
+			fan31.position.set(12,6,-185);
+			fan31.scale.set(0.6,0.6,0.6);
+			scene.add(fan31);
+			fan31.name = "fan31";
+			objetosConColision.push(fan3);
+
+			var fan4 = fan.clone();
+			fan4.position.set(0,6,-217);
+			fan4.scale.set(0.6,0.6,0.6);
+			scene.add(fan4);
+			fan4.name = "fan4";
+			objetosConColision.push(fan4);
+
+			var fan41 = fan.clone();
+			fan41.position.set(0,6,-217);
+			fan41.scale.set(0.6,0.6,0.6);
+			scene.add(fan41);
+			fan41.name = "fan41";
+			objetosConColision.push(fan41);
+
+			var fan5 = fan.clone();
+			fan5.position.set(0,6,-320);
+			fan5.scale.set(0.6,0.6,0.6);
+			scene.add(fan5);
+			fan5.name = "fan5";
+			objetosConColision.push(fan5);
+
+			var fan6 = fan.clone();
+			fan6.position.set(0,6,-355);
+			fan6.scale.set(0.6,0.6,0.6);
+			scene.add(fan6);
+			fan6.name = "fan6";
+			objetosConColision.push(fan6);
+
+			var fan7 = fan.clone();
+			fan7.position.set(9,6,-365);
+			fan7.scale.set(0.6,0.6,0.6);
+			scene.add(fan7);
+			fan7.name = "fan7";
+			objetosConColision.push(fan7);
+
+			var fan8 = fan.clone();
+			fan8.position.set(-9,6,-365);
+			fan8.scale.set(0.6,0.6,0.6);
+			scene.add(fan8);
+			fan8.name = "fan8";
+			objetosConColision.push(fan8);
+
+
+			isWorldReady[1] = true;
+		});
+
+
+
+
+        btnPausa = document.getElementById("btnPausa");
+        span = document.getElementsByClassName("close")[0];
+        spancontinue = document.getElementById("btnContinue");
+        modal = document.getElementById("myModal");
+        modaldos = document.getElementById("myModaldos");
+		btnPausa.onclick = function() {
+        modal.style.display = "block";
+        pause = 1;
+        
+
+        }
+
+        span.onclick = function() {
+        modal.style.display = "none";
+        }
+
+        spancontinue.onclick = function() {
+        modal.style.display = "none";
+        }
+
+// When the user clicks anywhere outside of the modal, close it
+         window.onclick = function(event) {
+         if (event.target == modal) {
+         modal.style.display = "none";
+         }
+         }
+
+       $('#myRange').change(function(){
+       	 audio = document.getElementById('myplayer');
+          audio.volume = $(this).val();
+        });
+
+       $('#myRangedos').change(function(){
+    
+         brightness =  $(this).val();
+
+        });
+
+      /* $('#Sharebtn').click(function() {	
+       	sendScore();
+       	document.getElementById("Sharebtn").style.visibility = "hidden";
+       	document.getElementById("inputUsuario").style.visibility = "hidden";
+       	document.getElementById("lblinputUsuario").style.visibility = "hidden";
+       	$("#messageShare").text("Se ha enviado tu puntuacion!!");
+
+
+       });
+       */
+
+       audio = document.getElementById('myplayer');
+       audio.volume = 0.1;
+
+
+		render();
+
+		document.addEventListener('keydown', onKeyDown);
+		document.addEventListener('keyup', onKeyUp);
+
+
+
+
+	});
+
+	function loadOBJWithMTL(path, objFile, mtlFile, onLoadCallback) {
+		var mtlLoader = new THREE.MTLLoader();
+		mtlLoader.setPath(path);
+		mtlLoader.load(mtlFile, (materials) => {
+			
+			var objLoader = new THREE.OBJLoader();
+			objLoader.setMaterials(materials);
+			objLoader.setPath(path);
+			objLoader.load(objFile, (object) => {
+				onLoadCallback(object);
+			});
+
+		});
+	}
+
+
+	function freload() {
+		location.reload();
+	}
+
+
+	function onKeyDown(event) {
+		keys[String.fromCharCode(event.keyCode)] = true;
+	}
+	function onKeyUp(event) {
+		keys[String.fromCharCode(event.keyCode)] = false;
+	}
+
+	
+	function render() {
+		requestAnimationFrame(render);
+		deltaTime = clock.getDelta();
+
+
+		mainplane = scene.getObjectByName("MainPlane");
+		mainplanetwo = scene.getObjectByName("MainPlaneTwo");		
+
+		directionalLight.intensity = brightness;
+		directionalLight2.intensity = brightness;
+
+
+		var fan = scene.getObjectByName("fan");
+		var fan1 = scene.getObjectByName("fan1");
+		var fan11 = scene.getObjectByName("fan11");
+		var fan2 = scene.getObjectByName("fan2");
+		var fan3 = scene.getObjectByName("fan3");
+		var fan31 = scene.getObjectByName("fan31");
+		var fan4 = scene.getObjectByName("fan4");
+		var fan41 = scene.getObjectByName("fan41");
+		var fan5 = scene.getObjectByName("fan5");
+		var fan6 = scene.getObjectByName("fan6");
+		var fan7 = scene.getObjectByName("fan7");
+		var fan8 = scene.getObjectByName("fan8");
+
+		
+
+
+
+		var yaw = 0;
+		var roll = 0;
+		var forward = 0;
+		var side = 0;
+
+		var yaw2 = 0;
+		var roll2 = 0;
+		var forward2 = 0;
+		var side2 = 0;
+
+
+        if (isover == 0){
+        if (keys["N"]) {
+        modal.style.display = "block";
+        pause = 1;
+        }
+ 
+        if (keys["M"]) {
+        if(pause == 1){
+           pause = 0;
+           modal.style.display = "none";
+        }
+		}
+
+
+		if (keys["A"]) {
+			side = -20;
+			yaw = 0.3;
+		} else if (keys["D"]) {
+			side = 20;
+			yaw = -0.3;
+		}
+		if (keys["W"]) {
+			forward = -10;
+		} else if (keys["S"]) {
+			forward = 10;
+		}
+
+		if (keys["J"]) {
+			side2 = -20;
+			yaw2 = 0.3;
+		} else if (keys["L"]) {
+			side2 = 20;
+			yaw2 = -0.3;
+		}
+		if (keys["I"]) {
+			forward2 = -10;
+		} else if (keys["K"]) {
+			forward2 = 10;
+		}
+
+
+
+
+		}
+
+		if (isWorldReady[0] && isWorldReady[1] && pause == 0) {
+			
+
+			
+			mainplane.rotation.x += roll * deltaTime;
+			mainplane.rotation.y += yaw * deltaTime;
+			mainplane.translateZ(forward * deltaTime);
+			mainplane.translateX(side * deltaTime);
+		    distancex = mainplane.position.x;
+			distancez = mainplane.position.z;
+
+			mainplanetwo.rotation.x += roll2 * deltaTime;
+			mainplanetwo.rotation.y += yaw2 * deltaTime;
+			mainplanetwo.translateZ(forward2 * deltaTime);
+			mainplanetwo.translateX(side2 * deltaTime);
+		    distancex2 = mainplanetwo.position.x;
+			distancez2 = mainplanetwo.position.z
+
+            fan.rotation.z = cameratransz;
+            fan.position.x = fanpos;
+			fan1.position.x = fanpos;
+			fan1.rotation.z = cameratransz;
+			fan11.position.x = -fanpos;
+			fan11.rotation.z = -cameratransz;
+			fan2.position.z = (-135) + fanpos;
+			fan2.rotation.z = cameratransz;
+			fan3.position.z =  (-185) + fanpos;
+			fan3.rotation.z = cameratransz;
+			fan31.position.z =  (-185) + (-fanpos);
+			fan31.rotation.z = -cameratransz;
+			fan4.position.x = -fanpos;
+			fan4.rotation.z = -cameratransz;
+			fan41.position.x = fanpos;
+			fan41.rotation.z = cameratransz;
+			fan5.position.x = -fanpos;
+			fan5.rotation.z = -cameratransz;
+			fan6.rotation.z = cameratransz;
+			fan7.rotation.z = -cameratransz;
+			fan7.position.z = (-365) + fanpos;
+			fan8.rotation.z = -cameratransz;
+			fan8.position.z = (-365) + fanpos;
+
+
+			
+
+
+			cameratransz -= 0.085;
+			ui_time += 0.01;
+			camera.position.z = cameratransz;
+			//camera.translateY(forward * deltaTime);
+
+			for(var i = 0; i < camera.rayos.length; i++){
+
+
+				//1er
+				rayCaster.set(mainplane.position,camera.rayos[i]);
+				rayCaster2.set(mainplanetwo.position,camera.rayos2[i]);
+
+				var colisiones = rayCaster.intersectObjects(objetosConColision,true);
+
+				if(colisiones.length > 0 && colisiones[0].distance < 2){
+					mainplane.translateX(-(side * deltaTime));
+					mainplane.translateZ(-(forward * deltaTime));
+					mainplane.rotation.x -= roll * deltaTime;
+					mainplane.rotation.y -= yaw * deltaTime;
+					modaldos.style.display = "block";
+					
+					pause = 1;
+					isover = 1;
+
+					ui_points = -1000;
+
+				}
+
+				var colisiones2 = rayCaster2.intersectObjects(objetosConColision,true);
+
+				if(colisiones2.length > 0 && colisiones2[0].distance < 2){
+					mainplanetwo.translateX(-(side2 * deltaTime));
+					mainplanetwo.translateZ(-(forward2 * deltaTime));
+					mainplanetwo.rotation.x -= roll2 * deltaTime;
+					mainplanetwo.rotation.y -= yaw2 * deltaTime;
+					modaldos.style.display = "block";
+					
+					pause = 1;
+					isover = 1;
+
+					ui_point2s = -1000;
+
+				}
+
+				colisiones = rayCaster.intersectObjects(globosRojosColision,true);
+				if(colisiones.length > 0 && colisiones[0].distance < 2){
+                       colisiones[0].object.translateX(-200);
+                       ui_points += 5;
+				}
+
+				colisiones = rayCaster.intersectObjects(globosAzulesColision,true);
+				if(colisiones.length > 0 && colisiones[0].distance < 2){
+                       colisiones[0].object.translateX(-200);
+                       ui_points += 10;
+				}
+
+				colisiones = rayCaster.intersectObjects(globosAmarillosColision,true);
+				if(colisiones.length > 0 && colisiones[0].distance < 2){
+                       colisiones[0].object.translateX(-200);
+                       ui_points += 20;
+				}
+
+				colisiones2 = rayCaster2.intersectObjects(globosRojosColision,true);
+				if(colisiones2.length > 0 && colisiones2[0].distance < 2){
+                       colisiones2[0].object.translateX(-200);
+                       ui_point2s += 5;
+				}
+
+				colisiones2 = rayCaster2.intersectObjects(globosAzulesColision,true);
+				if(colisiones2.length > 0 && colisiones2[0].distance < 2){
+                       colisiones2[0].object.translateX(-200);
+                       ui_point2s += 10;
+				}
+
+				colisiones2 = rayCaster2.intersectObjects(globosAmarillosColision,true);
+				if(colisiones2.length > 0 && colisiones2[0].distance < 2){
+                       colisiones2[0].object.translateX(-200);
+                       ui_point2s += 20;
+				}
+
+			}
+
+			
+
+			if(distancex <= -20 || distancex >= 20){
+				mainplane.translateX(-(side * deltaTime));
+				mainplane.translateZ(-(forward * deltaTime));
+				mainplane.rotation.x -= roll * deltaTime;
+				mainplane.rotation.y -= yaw * deltaTime;
+			}
+
+			if(distancex2 <= -20 || distancex2 >= 20){
+				mainplanetwo.translateX(-(side2 * deltaTime));
+				mainplanetwo.translateZ(-(forward2 * deltaTime));
+				mainplanetwo.rotation.x -= roll2 * deltaTime;
+				mainplanetwo.rotation.y -= yaw2 * deltaTime;
+			}
+
+
+
+	    //Animations
+	    if(fanlimit == 0){
+        if(fanpos < 18){
+	    fanpos += 0.2;
+	    }
+	    else 
+	    	fanlimit = 1;
+	    }
+ 
+        if(fanlimit == 1){
+ 	    if(fanpos > -18){
+	    fanpos -= 0.2;
+	    }
+	    else 
+	    	fanlimit = 0;
+        }
+
+
+		}
+
+		 ui_distance = -(distancez.toFixed(2));
+		 ui_distance2 = -(distancez2.toFixed(2));
+
+		  if (ui_distance < (-cameratransz)-25 ){
+				modaldos.style.display = "block";
+				pause = 1;
+				isover = 1;
+				ui_points = -1000;
+		  }
+
+		  if (ui_distance2 < (-cameratransz)-25 ){
+				modaldos.style.display = "block";
+				pause = 1;
+				isover = 1;
+				ui_point2s = -1000;
+		  }
+
+		if (ui_distance >= 400){
+				modaldos.style.display = "block";
+				pause = 1;
+				isover = 1;
+				//ui_distance=1000;
+			    //totalresult = ui_distance + ui_points + negatve_time;
+		}
+
+		if (ui_distance2 >= 400){
+				modaldos.style.display = "block";
+				pause = 1;
+				isover = 1;
+				//ui_distance=1000;
+			    //totalresult = ui_distance + ui_points + negatve_time;
+		}
+
+		if (isover == 1){
+			audio = document.getElementById('myplayer');
+            audio.volume = 0.0;
+		}
+		 
+		
+	    $(".distancedisplay").text(ui_distance);
+	    $(".movedisplay").text(ui_points);
+	    $(".distancedisplay2").text(ui_distance2);
+	    $(".movedisplay2").text(ui_point2s);
+	   // $(".timedisplay").text(ui_time.toFixed(2));
+
+	    negatve_time = -(ui_time.toFixed(2));
+
+	   // $(".resultdistance").text(ui_distance);
+	    $(".resultpoints").text(ui_points);
+	     $(".resultpoints2").text(ui_point2s);
+	   // $(".resulttime").text(negatve_time);
+
+	    totalresult = ui_distance + ui_points + negatve_time;
+	    totalresult = totalresult.toFixed(2);
+
+	    //$(".resulttotal").text(totalresult);
+
+	    if (ui_points > ui_point2s){
+	    	$(".messageWinner").text("Jugador 1");
+	    }
+	    else if(ui_points < ui_point2s) {
+           $(".messageWinner").text("Jugador 2");
+	    }
+	    else {
+	    	$(".messageWinner").text("Empate");
+	    }
+
+
+	   
+
+
+	    if(pause == 1){
+	    $(".instruccionm").text("Pulsa [M] para empezar el juego");
+	     }
+	     else
+	    $(".instruccionm").text("Pulsa [N] para pausar");
+
+
+
+		renderer.render(scene, camera);
+	}
+
+	function setupScene() {		
+		var visibleSize = { width: 600, height: 730};
+		clock = new THREE.Clock();		
+		scene = new THREE.Scene();
+		camera = new THREE.PerspectiveCamera(75, visibleSize.width / visibleSize.height, 0.1, 100);
+		camera.position.z = 4;
+		camera.position.y = 45;
+		camera.rotation.x += THREE.Math.degToRad(-80);
+
+		renderer = new THREE.WebGLRenderer( {precision: "mediump" } );
+		//renderer.setClearColor(new THREE.Color(0, 0, 0));
+		renderer.setPixelRatio(visibleSize.width / visibleSize.height);
+		renderer.setSize(visibleSize.width, visibleSize.height);
+
+		const loader = new THREE.TextureLoader();
+        loader.load('imagenes/skyafternonbackground.jpg' , function(texture)
+            {
+             scene.background = texture;  
+        });
+
+		var ambientLight = new THREE.AmbientLight(new THREE.Color(1, 1, 1), 1.0);
+		scene.add(ambientLight);
+
+	    directionalLight = new THREE.DirectionalLight(new THREE.Color(1, 1, 0), brightness);
+		directionalLight.position.set(0, 1, 0);
+		scene.add(directionalLight);
+
+	    directionalLight2 = new THREE.DirectionalLight(new THREE.Color(1, 1, 0), brightness);
+		directionalLight2.position.set(0, 0, 1);
+		scene.add(directionalLight2);
+
+ 
+        /*
+		var grid = new THREE.GridHelper(50, 10, 0xffffff, 0xffffff);
+		grid.position.y = -1;
+		scene.add(grid);
+		//*/
+
+
+
+
+
+
+
+		$("#scene-section").append(renderer.domElement);
+	}
+
+
+
+
+
+	</script>
+</head>
+
+<body  style="background-image: url(imagenes/hall_filter.jpg); background-size: cover;">
+
+
+<audio autoplay loop hidden id="myplayer">
+     <source src="sounds/tracktwo.mp3" type="audio/mpeg">
+                If you're reading this, audio isn't supported. 
+    </audio>
+
+
+	<!-- The Modal -->
+<div id="myModal" class="modal">
+
+  <!-- Modal content -->
+  <div class="modal-content">
+    <span class="close">&times;</span>
+    <div class="text-center">
+    <h1 style="color:  #000000; font-size: 170%; font-weight: 600;">Pausa</h1>
+    </div>
+    <div class="col-xs-12" style="height:1rem;"></div>
+
+
+    <div class="modal-body row">
+
+
+    <div class="col-md-6">
+    <h1 style="color:  #000000; font-size: 140%; font-weight: 600;">Controles</h1>
+    <div class="col-xs-12" style="height:1rem;"></div>
+    <img src="Imagenes/controldosreal.jpg" alt="controlses" width="450" height="300">
+    
+    </div>
+
+    <div class="col-md-6">
+    <h1 style="color:  #000000; font-size: 140%; font-weight: 600;">Configuracion</h1>
+    <div class="col-xs-12" style="height:1rem;"></div>
+    <h2 style="color:  #000000; font-size: 100%; font-weight: 600;">Sonido</h2>
+     <input id="myRange" type="range" min="0" max="1" value="0.1" step ="0.05" style="width: 500px;" />
+     <div class="col-xs-12" style="height:1rem;"></div>
+     <h2 style="color:  #000000; font-size: 100%; font-weight: 600;">Brillo</h2>
+     <input id="myRangedos" type="range" min="0" max="1" value="0.4" step ="0.05" style="width: 500px;" />
+     <div class="col-xs-12" style="height:3rem;"></div>
+     <button class="btn btn-primary btn-block" id="btnContinue" style="color:  #FFFFFF; background-color: #16697A; border-color: #16697A; width: 40%; border-width: 2px; font-weight: 600; font-size: 140%;"  type="button"><i class="fa fa-play fa-fw"></i>&nbsp;&nbsp;&nbsp;Continuar</button>
+    
+  </div>
+    </div>
+
+    </div>
+
+</div>
+</div>
+
+<div id="myModaldos" class="modal">
+  <div class="modal-content">
+    <div class="text-center">
+    <h1 style="color:  #000000; font-size: 170%; font-weight: 600;">Juego terminado</h1>
+        <div class="col-xs-12" style="height:1rem;"></div>
+    <h1 style="color:  #000000; font-size: 140%; font-weight: 600;">Resultados</h1>
+    </div>
+    <div class="col-xs-12" style="height:1rem;"></div>
+
+    <div class="modal-body row">
+    	<div class="col-md-4">	
+    	</div>
+    	<div class="col-md-3">
+    		<h2 style="color:  #DC143C; font-size: 120%; font-weight: 600;">Puntos Jugador 1:</h2>
+    		<h2 style="color:  #4B5E65; font-size: 120%; font-weight: 600;">Puntos Jugador 2:</h2>
+    		
+    	</div>
+    	<div class="col-md-1">
+    		<h2 class="resultpoints" style="color:  #000000; font-size: 120%; font-weight: 600;">0</h2>
+    		<h2 class="resultpoints2" style="color:  #000000; font-size: 120%; font-weight: 600;">0</h2>
+    	</div>
+    	<div class="col-md-4">
+    	</div>
+    </div>
+
+    <div class="col-xs-12" style="height:1rem;"></div>
+    <div class="text-center">
+    <h1  style="color:  #000000; font-size: 140%; font-weight: 600;">El ganador es...</h1>
+    <h1 class="messageWinner" style="color:  #000000; font-size: 500%; font-weight: 600;">Jugador 1</h1>
+    </div>
+
+
+
+<div class="col-xs-12" style="height:2rem;"></div>
+<div class="modal-body row">
+	<div class="col-md-2">
+    </div>
+    <div class="col-md-4">
+    	<a class="btn btn-primary btn-block" href="Main.html" style="color:  #FFFFFF; background-color: #DB6400; border-color: #DB6400; width: 100%; border-width: 2px; font-weight: 600; font-size: 100%;"  type="button"><i class="fa fa-arrow-left fa-fw"></i>&nbsp;&nbsp;&nbsp;Regresar al menu principal</a>
+    </div>
+    <div class="col-md-4">
+    	<button class="btn btn-primary btn-block" onclick="freload();" style="color:  #FFFFFF; background-color: #DB6400; border-color: #DB6400; width: 100%; border-width: 2px; font-weight: 600; font-size: 100%;"  type="button"><i class="fa fa-refresh fa-fw"></i>&nbsp;&nbsp;&nbsp;Volver a jugar multijugador</button>
+    </div>
+    <div class="col-md-2">
+    </div>
+</div>
+
+ <canvas id="webgl-canvas" width="0" height="0">
+		Tu navegador no es compatible con canvas
+	</canvas>
+
+
+
+  </div>
+</div>
+
+
+
+<div class="modal-body row">
+  <div class="col-md-1">
+    <!-- Your first column here -->
+  </div>
+   <div class="col-md-4">
+
+<div class="card" style="width: 32rem;   border-color: #DC143C;">
+  <div class="card-body">
+     <h4 class="card-title" style="color:  #DC143C;">Jugador 1</h4>
+      <br>
+      <div class="modal-body row">
+
+      <div class="col-md-4">
+        <p  style="color:  #000000; font-size: 100%; font-weight: 600;">Recorrido:</p>
+        <p  style="color:  #000000; font-size: 100%; font-weight: 600;">Puntos:&nbsp;</p>
+      </div>
+
+      <div class="col-md-6">
+      	<p  class ="distancedisplay "style="color:  #000000; font-size: 100%; font-weight: 600;">0</p>
+      	<p  class ="movedisplay "style="color:  #000000; font-size: 100%; font-weight: 600;">0</p>
+      </div>
+
+
+      <div class="col-md-2">
+      	<p  style="color:  #000000; font-size: 100%; font-weight: 600;">m</p>
+        <p  style="color:  #000000; font-size: 100%; font-weight: 600;">pts&nbsp;</p>
+      </div>
+      
+      </div>
+  </div>
+</div>
+
+<div class="col-xs-12" style="height:2rem;"></div>
+
+<div class="card" style="width: 32rem;   border-color: #4B5E65;">
+  <div class="card-body">
+     <h4 class="card-title" style="color:  #4B5E65;">Jugador 2</h4>
+      <br>
+      <div class="modal-body row">
+
+      <div class="col-md-4">
+        <p  style="color:  #000000; font-size: 100%; font-weight: 600;">DRecorrido:</p>
+        <p  style="color:  #000000; font-size: 100%; font-weight: 600;">Puntos:&nbsp;</p>
+      </div>
+
+      <div class="col-md-6">
+      	<p  class ="distancedisplay2 "style="color:  #000000; font-size: 100%; font-weight: 600;">0</p>
+      	<p  class ="movedisplay2 "style="color:  #000000; font-size: 100%; font-weight: 600;">0</p>
+      </div>
+
+
+      <div class="col-md-2">
+      	<p  style="color:  #000000; font-size: 100%; font-weight: 600;">m</p>
+        <p  style="color:  #000000; font-size: 100%; font-weight: 600;">pts&nbsp;</p>
+      </div>
+      
+      </div>
+  </div>
+</div>
+
+<div class="col-xs-12" style="height:1rem;"></div>
+<h2 class ="instruccionm" style="color:  #FFFFFF; font-size: 120%; font-weight: 600;">Pulsa [M] para empezar el juego</h2>
+ <div class="col-xs-12" style="height:4rem;"></div>
+<a class="btn btn-primary btn-block" href="LevelSelector.html"style="color:  #FFFFFF; background-color: #FFA62B; border-color: #FFA62B; width: 60%; border-width: 2px; font-weight: 600; font-size: 140%;"  type="button"><i class="fa fa-arrow-left fa-fw"></i>&nbsp;&nbsp;&nbsp;Regresar</a>
+<br>
+<button class="btn btn-primary btn-block" id="btnPausa" style="color:  #FFFFFF; background-color: #16697A; border-color: #16697A; width: 60%; border-width: 2px; font-weight: 600; font-size: 140%;"  type="button"><i class="fa fa-pause fa-fw"></i>&nbsp;&nbsp;&nbsp;Pausa</button>
+    
+  </div>
+  <div class="col-md-7">
+    <div id="scene-section"/>
+  </div>
+</div>
+
+	
+
+</body>
+</html>
