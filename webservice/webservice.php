@@ -9,10 +9,10 @@
 		getScoresDos();
 
 	function connect() {
-		$databasehost = "localhost";
-		$databasename = "paperflightdb";
-		$databaseuser = "root";
-		$databasepass = "password";
+		$databasehost = "us-cdbr-east-02.cleardb.com";
+		$databasename = "heroku_4258861ad371c37";
+		$databaseuser = "bb91d7b9c552e2";
+		$databasepass = "d2e2795b";
 
 		$mysqli = new mysqli($databasehost, $databaseuser, $databasepass, $databasename);
 		if ($mysqli->connect_errno) {
