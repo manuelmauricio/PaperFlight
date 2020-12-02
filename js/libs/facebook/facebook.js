@@ -19,7 +19,7 @@ window.fbAsyncInit = function() {
 function shareScore(score) {
   FB.ui({
     method:'share',
-    href: 'https://www.google.com',
+    href: 'https://paperflight.herokuapp.com',
     hashtag: "#PaperFlight",
     quote: "Obtuve un puntaje de" + " " + score + " " + "en Paper Flight"
   }, function(response){});
